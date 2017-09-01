@@ -20,7 +20,7 @@ legal = "Copyright (C) 2012-2015 by Autodesk, Inc.";
 certificationLevel = 2;
 minimumRevision = 39000;
 
-longDescription = "Generic jet post for Northern Plasma.";
+longDescription = "Generic jet post for NorthernPlasma plasma cutter.";
 
 extension = "TAP";
 setCodePage("ascii");
@@ -172,7 +172,7 @@ function onSection() {
     var newWorkOffset = isFirstSection() || (getPreviousSection().workOffset != currentSection.workOffset);  // Work offset changes
     var newWorkPlane = isFirstSection() || !isSameDirection(getPreviousSection().getGlobalFinalToolAxis(), currentSection.getGlobalInitialToolAxis());
 
-    writeln("");
+    // writeln("");
 
     forceXYZ();
 
@@ -302,6 +302,8 @@ function onStartFile() {
             writeBlock(gUnitModal.format(21));  // Set active units
             break;
     }
+
+    writeln("");
 
 }
 
