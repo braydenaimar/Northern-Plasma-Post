@@ -41,6 +41,7 @@ allowedCircularPlanes = undefined;  // Allow any circular motion
 properties = {
     _Stock_Width: 0,  // Width of the stock material
     _Stock_Length: 0,  // Length of the stock material
+	_Trim_Excess: true,  // Cutoff excess material if _Stock_Width and _Stock_Length are given
     writeMachine: false,  // Write machine
     showSequenceNumbers: true,  // Show sequence numbers
     sequenceNumberStart: 2,  // First sequence number
@@ -581,14 +582,37 @@ function onSectionEnd() {
 
 }
 
+function trimExcessStock() {
+
+	if (!properties._Trim_Excess || !properties._Stock_Width || !properties._Stock_Length || !hasParameter('stock-upper-x') || !hasParameter('stock-upper-y'))
+		return;
+
+	writeln("");
+	writeComment("Trimming Excess Stock");
+
+	var stockWidth = properties._Stock_Width;
+	var stockLength = properties._Stock_Length;
+	var upperX = getParameter('stock-upper-x');
+	var upperY = getParameter('stock-upper-y');
+
+	writeBlock(gMotionModal.format(0), xOutput.format(-0.1875), yOutput.format(upperY));
+	setDeviceMode(true);
+	writeBlock(gMotionModal.format(1), xOutput.format(upperX), yOutput.format(upperY));
+	setDeviceMode(false);
+
+	writeBlock(gMotionModal.format(0), xOutput.format(upperX), yOutput.format(-0.125));
+	setDeviceMode(true);
+	writeBlock(gMotionModal.format(1), xOutput.format(upperX), yOutput.format(upperY));
+	setDeviceMode(false);
+
+}
+
 function onClose() {
 
+	trimExcessStock();
+
     writeln("");
-
     onCommand(COMMAND_COOLANT_OFF);
-
-    // writeBlock(mFormat.format(19));
-    // writeBlock(gFormat.format(280), gFormat.format(281));
 
     forceAny();
     writeBlock(gMotionModal.format(0), xOutput.format(0), yOutput.format(0));  // Send machine back to zero position
