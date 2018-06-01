@@ -79,6 +79,13 @@ var WARNING_WORK_OFFSET = 0;
 var sequenceNumber;
 var currentWorkOffset;
 
+function onPassThrough(text) {
+	var commands = String(text).split(",");
+	for (text in commands) {
+		writeBlock(commands[text]);
+	}
+}
+
 function writeBlock() {
 
     if (properties.showSequenceNumbers) {
