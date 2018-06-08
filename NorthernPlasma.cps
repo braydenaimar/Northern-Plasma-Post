@@ -39,6 +39,7 @@ allowedCircularPlanes = undefined;  // Allow any circular motion
 
 // User-defined properties
 properties = {
+	debugMode: false,
     _Stock_Width: 0,  // Width of the stock material
     _Stock_Length: 0,  // Length of the stock material
 	_Trim_Excess: true,  // Cutoff excess material if _Stock_Width and _Stock_Length are given
@@ -50,6 +51,65 @@ properties = {
     separateWordsWithSpace: true  // Specifies that the words should be separated with a white space
 };
 
+propertyDefinitions = {
+	writeMachine: {
+		title: "Write machine",
+		description: "Output the machine settings in the header of the code.",
+		group: 0,
+		type: "boolean"
+	},
+	writeTools: {
+		title: "Write tool list",
+		description: "Output a tool list in the header of the code.",
+		group: 0,
+		type: "boolean"
+	},
+	useG28: {
+		title: "G28 Safe retracts",
+		description: "Disable to avoid G28 output for safe machine retracts. When disabled, you must manually ensure safe retracts.",
+		type: "boolean"
+	},
+	showSequenceNumbers: {
+		title: "Use sequence numbers",
+		description: "Use sequence numbers for each block of outputted code.",
+		group: 1,
+		type: "boolean"
+	},
+	sequenceNumberStart: {
+		title: "Start sequence number",
+		description: "The number at which to start the sequence numbers.",
+		group: 1,
+		type: "integer"
+	},
+	sequenceNumberIncrement: {
+		title: "Sequence number increment",
+		description: "The amount by which the sequence number is incremented by in each block.",
+		group: 1,
+		type: "integer"
+	},
+	separateWordsWithSpace: {
+		title: "Separate words with space",
+		description: "Adds spaces between words if 'yes' is selected.",
+		type: "boolean"
+	},
+	debugMode: {
+		title: "Debuging output",
+		description: "Adds identifiers for code run and properties.",
+		type: "boolean"
+	},
+	_Stock_Width: {
+		title: "Stock Width",
+		type: "boolean"
+	},
+	_Stock_Length: {
+		title: "Stock Length",
+		type: "boolean"
+	},
+	_Trim_Excess: {
+		title: "Trim Excess Stock",
+		type: "boolean"
+	}
+};
 
 var gFormat = createFormat({ prefix: "G", decimals: 0 });
 var mFormat = createFormat({ prefix: "M", decimals: 0 });
@@ -112,8 +172,44 @@ function writeComment(text) {
     writeln(formatComment(text));
 
 }
+function writeObject(text) {
+	var newText = text;
+	var newLength = newText.length;
+	var indexOffset = 0;
+	var indentLevel = 0;
+	var inString = false;
+
+	for (var i = 0; i < text.length; i++) {
+		if (text[i] === '{') {  // Increase indent
+			indentLevel += 1;
+		} else if (text[i] === '}' && indentLevel) {  // Decrease indent
+			indentLevel -= 1;
+		}
+		if (text[i] === '"') {  // Enter or exit a string
+			inString = !inString;
+		}
+
+		if (text[i].match(/[\{\,\}]/i) && !inString) {  // New line
+			var str = newText.substr(0, i + indexOffset) + (text[i] !== '}' ? text[i] : '') + '\n';
+			for (var x = 0; x < indentLevel; x++) {
+				str += '\t';
+			}
+			str += (text[i] === '}' ? text[i] : '') + newText.substr(i + indexOffset + 1);
+
+			newText = str;
+		}
+
+		indexOffset = newText.length - text.length;
+	}
+
+	newText = newText.replace(/\:/g, ': ');
+	writeln(newText);
+}
 
 function onOpen() {
+	if (properties.debugMode) {
+		writeObject('Properties:' + JSON.stringify(properties));
+	}
 
     if (!properties.separateWordsWithSpace)
         setWordSeparator("");
@@ -172,7 +268,40 @@ function forceAny() {
 
 function onSection() {
 
-    onStartFile();
+	if (properties.debugMode) {
+		writeln('fn onSection()');
+		if (hasParameter('stock-lower-x')) {
+			writeln('stock-lower-x: ' + getParameter('stock-lower-x'));
+			writeln('stock-upper-x: ' + getParameter('stock-upper-x'));
+			writeln('stock-lower-y: ' + getParameter('stock-lower-y'));
+			writeln('stock-upper-y: ' + getParameter('stock-upper-y'));
+			writeln('stock-lower-z: ' + getParameter('stock-lower-z'));
+			writeln('stock-upper-z: ' + getParameter('stock-upper-z'));
+		}
+
+		if (hasParameter('operation:stockXLow')) {
+			writeln('operation:stockXLow: ' + getParameter('operation:stockXLow'));
+			writeln('operation:stockXHigh: ' + getParameter('operation:stockXHigh'));
+			writeln('operation:stockYLow: ' + getParameter('operation:stockYLow'));
+			writeln('operation:stockYHigh: ' + getParameter('operation:stockYHigh'));
+			writeln('operation:stockZLow: ' + getParameter('operation:stockZLow'));
+			writeln('operation:stockZHigh: ' + getParameter('operation:stockZHigh'));
+		}
+
+		if (hasParameter('operation:surfaceXLow')) {
+			writeln('operation:surfaceXLow: ' + getParameter('operation:surfaceXLow'));
+			writeln('operation:surfaceXHigh: ' + getParameter('operation:surfaceXHigh'));
+			writeln('operation:surfaceYLow: ' + getParameter('operation:surfaceYLow'));
+			writeln('operation:surfaceYHigh: ' + getParameter('operation:surfaceYHigh'));
+			writeln('operation:surfaceZLow: ' + getParameter('operation:surfaceZLow'));
+			writeln('operation:surfaceZHigh: ' + getParameter('operation:surfaceZHigh'));
+		}
+	}
+
+
+	if (isFirstSection()) {
+		onStartFile();
+	}
 
     var insertToolCall = isFirstSection() || currentSection.getForceToolChange && currentSection.getForceToolChange() || (tool.number != getPreviousSection().getTool().number);
 
@@ -264,11 +393,14 @@ function onRadiusCompensation() {
 var startFileRan = false;
 
 function onStartFile() {
-
     if (startFileRan)
         return;
 
     startFileRan = true;
+
+	if (properties.debugMode) {
+		writeln('fn onStartFile()');
+	}
 
     if (properties._Stock_Width) {  // If a stock width was specified
 
@@ -321,6 +453,10 @@ var shapeSide = "inner";
 var cuttingSequence = "";
 
 function onParameter(name, value) {
+
+	if (properties.debugMode) {
+		writeln('fn onParameter(' + name + ': ' + value + ')');
+	}
 
     if ((name == "action") && (value == "pierce")) {
 
@@ -583,6 +719,9 @@ function onCommand(command) {
 }
 
 function onSectionEnd() {
+	if (properties.debugMode) {
+		writeln('fn onSectionEnd()');
+	}
 
     setDeviceMode(false);
     forceAny();
@@ -615,6 +754,35 @@ function trimExcessStock() {
 }
 
 function onClose() {
+	if (properties.debugMode) {
+		writeln('fn onClose()');
+		if (hasParameter('stock-lower-x')) {
+			writeln('stock-lower-x: ' + getParameter('stock-lower-x'));
+			writeln('stock-upper-x: ' + getParameter('stock-upper-x'));
+			writeln('stock-lower-y: ' + getParameter('stock-lower-y'));
+			writeln('stock-upper-y: ' + getParameter('stock-upper-y'));
+			writeln('stock-lower-z: ' + getParameter('stock-lower-z'));
+			writeln('stock-upper-z: ' + getParameter('stock-upper-z'));
+		}
+
+		if (hasParameter('operation:stockXLow')) {
+			writeln('operation:stockXLow: ' + getParameter('operation:stockXLow'));
+			writeln('operation:stockXHigh: ' + getParameter('operation:stockXHigh'));
+			writeln('operation:stockYLow: ' + getParameter('operation:stockYLow'));
+			writeln('operation:stockYHigh: ' + getParameter('operation:stockYHigh'));
+			writeln('operation:stockZLow: ' + getParameter('operation:stockZLow'));
+			writeln('operation:stockZHigh: ' + getParameter('operation:stockZHigh'));
+		}
+
+		if (hasParameter('operation:surfaceXLow')) {
+			writeln('operation:surfaceXLow: ' + getParameter('operation:surfaceXLow'));
+			writeln('operation:surfaceXHigh: ' + getParameter('operation:surfaceXHigh'));
+			writeln('operation:surfaceYLow: ' + getParameter('operation:surfaceYLow'));
+			writeln('operation:surfaceYHigh: ' + getParameter('operation:surfaceYHigh'));
+			writeln('operation:surfaceZLow: ' + getParameter('operation:surfaceZLow'));
+			writeln('operation:surfaceZHigh: ' + getParameter('operation:surfaceZHigh'));
+		}
+	}
 
 	trimExcessStock();
 
