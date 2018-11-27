@@ -99,11 +99,11 @@ propertyDefinitions = {
 	},
 	_Stock_Width: {
 		title: "Stock Width",
-		type: "boolean"
+		type: "integer"
 	},
 	_Stock_Length: {
 		title: "Stock Length",
-		type: "boolean"
+		type: "integer"
 	},
 	_Trim_Excess: {
 		title: "Trim Excess Stock",
